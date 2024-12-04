@@ -56,6 +56,7 @@ fn parse_number(inputs, acc) {
 pub fn part2(inputs) {
   do_part2(inputs, 0, True)
 }
+
 fn do_part2(inputs, sum, enabled) {
   case inputs {
     "" -> sum
