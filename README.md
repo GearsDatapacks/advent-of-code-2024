@@ -1,24 +1,7 @@
-# aoc
+# Gears' 2024 Advent of Code Solutions
+## Written in Gleam!
 
-[![Package Version](https://img.shields.io/hexpm/v/aoc)](https://hex.pm/packages/aoc)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/aoc/)
+Code for solving each day can be found in `src/aoc_2024/day_*.gleam`. The `pt_1` and `pt_2` functions run each part of the problem respectively.
 
-```sh
-gleam add aoc@1
-```
-```gleam
-import aoc
-
-pub fn main() {
-  // TODO: An example of the project in use
-}
-```
-
-Further documentation can be found at <https://hexdocs.pm/aoc>.
-
-## Development
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-```
+**This Repository uses [gladvent](https://hexdocs.pm/gladvent)**. To run a day, run `gleam run run <day number>`, or `gleam run run all` to run all days at once.
+**Warning**: This repo is set up with my puzzle inputs, which are not included in this repository. To run a day with your own puzzle inputs, you will need to change the `[gladvent.<year>.<day>]` expected values in `gleam.toml` (or remove them), and add your own inputs in `input/<year>/<day>.txt`.
