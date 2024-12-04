@@ -1,4 +1,4 @@
-import day4
+import aoc/day4
 import gleam/io
 import simplifile
 
