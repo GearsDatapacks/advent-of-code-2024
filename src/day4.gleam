@@ -8,17 +8,16 @@ pub fn part1(inputs: String) -> Int {
   use count, #(x, y), char <- dict.fold(grid, 0)
 
   case char {
-    "X" -> count + search1(grid, x, y)
+    "X" -> count + search(grid, x, y)
     _ -> count
   }
 }
 
-fn search1(grid, x, y) {
+fn search(grid, x, y) {
   [#(1, 0), #(-1, 0), #(0, 1), #(0, -1), #(1, 1), #(1, -1), #(-1, 1), #(-1, -1)]
-  |> list.filter(fn(direction) {
+  |> list.count(fn(direction) {
     check_direction(grid, x, y, direction.0, direction.1)
   })
-  |> list.length
 }
 
 fn check_direction(grid, x, y, dx, dy) {
