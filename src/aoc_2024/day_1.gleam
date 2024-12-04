@@ -5,7 +5,7 @@ import gleam/option
 import gleam/result
 import gleam/string
 
-pub fn part1(inputs) {
+pub fn pt_1(inputs) {
   let #(list1, list2) = parse(inputs)
   let list1 = list.sort(list1, int.compare)
   let list2 = list.sort(list2, int.compare)
@@ -25,7 +25,7 @@ fn parse(inputs) {
   |> list.unzip
 }
 
-pub fn part2(inputs) {
+pub fn pt_2(inputs) {
   let #(list1, list2) = parse(inputs)
   let counts =
     list.fold(list2, dict.new(), fn(counts, next) {

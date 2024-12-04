@@ -1,7 +1,7 @@
 import gleam/bool
 import gleam/string
 
-pub fn part1(inputs) {
+pub fn pt_1(inputs) {
   do_part1(inputs, 0)
 }
 
@@ -53,7 +53,7 @@ fn parse_number(inputs, acc) {
   }
 }
 
-pub fn part2(inputs) {
+pub fn pt_2(inputs) {
   do_part2(inputs, 0, True)
 }
 

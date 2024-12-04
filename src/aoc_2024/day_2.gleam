@@ -3,7 +3,7 @@ import gleam/list
 import gleam/order
 import gleam/string
 
-pub fn part1(inputs) {
+pub fn pt_1(inputs) {
   parse(inputs)
   |> list.count(is_safe)
 }
@@ -35,7 +35,7 @@ fn parse(inputs) {
   })
 }
 
-pub fn part2(inputs) {
+pub fn pt_2(inputs) {
   parse(inputs)
   |> list.count(is_safe_with_dampening)
 }

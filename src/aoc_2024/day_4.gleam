@@ -3,7 +3,7 @@ import gleam/dict
 import gleam/list
 import gleam/string
 
-pub fn part1(inputs: String) -> Int {
+pub fn pt_1(inputs: String) -> Int {
   let grid = parse(inputs)
   use count, #(x, y), char <- dict.fold(grid, 0)
 
@@ -38,7 +38,7 @@ fn parse(inputs: String) {
   |> dict.from_list
 }
 
-pub fn part2(inputs: String) -> Int {
+pub fn pt_2(inputs: String) -> Int {
   let grid = parse(inputs)
   use count, #(x, y), char <- dict.fold(grid, 0)
 
