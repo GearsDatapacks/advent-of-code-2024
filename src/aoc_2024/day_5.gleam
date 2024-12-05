@@ -1,10 +1,16 @@
+import aoc/utils
 import gleam/int
 import gleam/list
-import gleam/pair
 import gleam/string
-import aoc/utils
 
-pub fn pt_1(input: String) {
+type Rule {
+  Rule(before: Int, after: Int)
+}
+
+type Update =
+  List(Int)
+
+pub fn pt_1(input: String) -> Int {
   let #(rules, updates) = parse(input)
   updates
   |> list.filter(is_correct(_, rules))
@@ -12,11 +18,14 @@ pub fn pt_1(input: String) {
   |> int.sum
 }
 
-fn is_correct(order: List(Int), rules: List(#(Int, Int))) -> Bool {
+fn is_correct(update: Update, rules: List(Rule)) -> Bool {
   rules
   |> list.all(fn(rule) {
-    case utils.index_of(order, rule.0), utils.index_of(order, rule.1) {
-      Ok(first), Ok(second) -> first < second
+    case
+      utils.index_of(update, rule.before),
+      utils.index_of(update, rule.after)
+    {
+      Ok(before_index), Ok(after_index) -> before_index < after_index
       _, _ -> True
     }
   })
@@ -31,43 +40,47 @@ fn middle(list: List(Int)) -> Int {
   middle
 }
 
-pub fn pt_2(input: String) {
+pub fn pt_2(input: String) -> Int {
   let #(rules, updates) = parse(input)
   updates
   |> list.filter(utils.not(is_correct(_, rules)))
   |> list.map(reorder(_, rules))
-  |> list.map(middle) |> int.sum
+  |> list.map(middle)
+  |> int.sum
 }
 
-fn reorder(list, rules: List(#(Int, Int))) {
-  case list {
+fn reorder(update: Update, rules: List(Rule)) -> Update {
+  case update {
     [] -> []
     [first] -> [first]
     [first, ..] -> {
       let #(before, after) =
         rules
-        |> list.filter(fn(rule) { list.contains(list, rule.0) && list.contains(list, rule.1) })
-        |> list.filter(fn(rule) { rule.0 == first || rule.1 == first })
-        |> list.partition(fn(rule) { first == rule.1 })
+        |> list.filter(fn(rule) {
+          { rule.before == first && list.contains(update, rule.after) }
+          || { rule.after == first && list.contains(update, rule.before) }
+        })
+        |> list.partition(fn(rule) { first == rule.after })
 
-      let before = list.map(before, pair.first)
-      let after = list.map(after, pair.second)
+      let before = list.map(before, fn(rule) { rule.before })
+      let after = list.map(after, fn(rule) { rule.after })
 
       list.flatten([reorder(before, rules), [first], reorder(after, rules)])
     }
   }
 }
 
-fn parse(input: String) -> #(List(#(Int, Int)), List(List(Int))) {
+fn parse(input: String) -> #(List(Rule), List(Update)) {
   let assert Ok(#(part1, part2)) = string.split_once(input, "\n\n")
   let rules =
     part1
     |> string.split("\n")
     |> list.map(fn(line) {
-      let assert [a, b] =
+      let assert [before, after] =
         line |> string.split("|") |> list.filter_map(int.parse)
-      #(a, b)
+      Rule(before:, after:)
     })
+
   let updates =
     part2
     |> string.split("\n")
