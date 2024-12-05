@@ -1,6 +1,8 @@
 import aoc/utils
+import gleam/dict.{type Dict}
 import gleam/int
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/string
 
 type Rule {
@@ -9,6 +11,10 @@ type Rule {
 
 type Update =
   List(Int)
+
+type Relationships {
+  Relationships(before: List(Int), after: List(Int))
+}
 
 pub fn pt_1(input: String) -> Int {
   let #(rules, updates) = parse(input)
@@ -42,28 +48,48 @@ fn middle(list: List(Int)) -> Int {
 
 pub fn pt_2(input: String) -> Int {
   let #(rules, updates) = parse(input)
+  let mapped_rules =
+    list.fold(rules, dict.new(), fn(rules, rule) {
+      rules
+      |> dict.upsert(rule.before, fn(relationships) {
+        case relationships {
+          None -> Relationships(before: [], after: [rule.after])
+          Some(relationships) ->
+            Relationships(
+              ..relationships,
+              after: [rule.after, ..relationships.after],
+            )
+        }
+      })
+      |> dict.upsert(rule.after, fn(relationships) {
+        case relationships {
+          None -> Relationships(before: [rule.before], after: [])
+          Some(relationships) ->
+            Relationships(
+              ..relationships,
+              before: [rule.before, ..relationships.before],
+            )
+        }
+      })
+    })
+
   updates
   |> list.filter(utils.not(is_correct(_, rules)))
-  |> list.map(reorder(_, rules))
-  |> list.map(middle)
+  |> list.map(fn(update) { update |> reorder(mapped_rules) |> middle })
   |> int.sum
 }
 
-fn reorder(update: Update, rules: List(Rule)) -> Update {
+fn reorder(update: Update, rules: Dict(Int, Relationships)) -> Update {
   case update {
     [] -> []
     [first] -> [first]
     [first, ..] -> {
-      let #(before, after) =
-        rules
-        |> list.filter(fn(rule) {
-          { rule.before == first && list.contains(update, rule.after) }
-          || { rule.after == first && list.contains(update, rule.before) }
-        })
-        |> list.partition(fn(rule) { first == rule.after })
+      let assert Ok(Relationships(before:, after:)) = dict.get(rules, first)
 
-      let before = list.map(before, fn(rule) { rule.before })
-      let after = list.map(after, fn(rule) { rule.after })
+      let before =
+        list.filter(before, fn(number) { list.contains(update, number) })
+      let after =
+        list.filter(after, fn(number) { list.contains(update, number) })
 
       list.flatten([reorder(before, rules), [first], reorder(after, rules)])
     }
