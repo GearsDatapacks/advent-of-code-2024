@@ -1,5 +1,4 @@
 import gleam/dict.{type Dict}
-import gleam/io
 import gleam/list
 import gleam/set.{type Set}
 import gleam/string

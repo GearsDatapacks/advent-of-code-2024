@@ -1,13 +1,13 @@
-import gleam/float
+import aoc/utils
 import gleam/int
 import gleam/list
 import gleam/string
 
-pub fn pt_1(input: String) {
+pub fn pt_1(input: String) -> Int {
   let equations = parse(input)
   equations
   |> list.filter_map(fn(equation) {
-    case could_be_true(equation.0, equation.1) {
+    case could_be_true(equation.0, equation.1, Part1) {
       True -> Ok(equation.0)
       False -> Error(Nil)
     }
@@ -15,42 +15,58 @@ pub fn pt_1(input: String) {
   |> int.sum
 }
 
-fn could_be_true(test_value: Int, operands: List(Int)) {
+fn could_be_true(test_value: Int, operands: List(Int), part: Part) -> Bool {
   let assert [first, ..operands] = operands
-  use operators <- list.any(operator_combinations(list.length(operands), [[]]))
+  use operators <- list.any(operator_combinations(list.length(operands), [[]], part))
   let result = operands |> list.zip(operators) |> evaluate(first, _)
   result == test_value
 }
 
-fn evaluate(initial, operation: List(#(Int, Operator))) {
+fn evaluate(initial: Int, operation: List(#(Int, Operator))) -> Int {
   use acc, #(x, op) <- list.fold(operation, initial)
   case op {
     Plus -> acc + x
     Times -> acc * x
+    Concatenate ->
+      int.parse(int.to_string(acc) <> int.to_string(x)) |> utils.unwrap
   }
 }
 
 type Operator {
   Plus
   Times
+  Concatenate
 }
 
-fn operator_combinations(length: Int, acc: List(List(Operator))) {
+type Part {
+  Part1
+  Part2
+}
+
+fn operator_combinations(length: Int, acc: List(List(Operator)), part: Part) -> List(List(Operator)) {
   case length {
     0 -> acc
-    _ ->
-      acc
-      |> list.map(fn(operators) { [Plus, ..operators] })
-      |> list.append(acc |> list.map(fn(operators) { [Times, ..operators] }))
-      |> operator_combinations(length - 1, _)
+    _ -> {
+      let plus = acc |> list.map(fn(operators) { [Plus, ..operators] })
+      let times = acc |> list.map(fn(operators) { [Times, ..operators] })
+      let concat = case part {
+        Part1 -> []
+        Part2 -> acc |> list.map(fn(operators) { [Concatenate, ..operators] })
+      }
+      operator_combinations(
+        length - 1,
+        list.flatten([plus, times, concat]),
+        part,
+      )
+    }
   }
 }
 
-pub fn pt_2(input: String) {
+pub fn pt_2(input: String) -> Int {
   let equations = parse(input)
   equations
   |> list.filter_map(fn(equation) {
-    case could_be_true2(equation.0, equation.1) {
+    case could_be_true(equation.0, equation.1, Part2) {
       True -> Ok(equation.0)
       False -> Error(Nil)
     }
@@ -58,45 +74,7 @@ pub fn pt_2(input: String) {
   |> int.sum
 }
 
-fn could_be_true2(test_value: Int, operands: List(Int)) {
-  let assert [first, ..operands] = operands
-  use operators <- list.any(operator_combinations2(list.length(operands), [[]]))
-  let result = operands |> list.zip(operators) |> evaluate2(first, _)
-  result == test_value
-}
-
-fn evaluate2(initial, operation: List(#(Int, Operator2))) {
-  use acc, #(x, op) <- list.fold(operation, initial)
-  case op {
-    Concat -> {
-      let x_len = x |> int.to_string |> string.length
-      let assert Ok(pow) = int.power(10, int.to_float(x_len))
-      acc * float.truncate(pow) + x
-    }
-    Plus2 -> acc + x
-    Times2 -> acc * x
-  }
-}
-
-type Operator2 {
-  Plus2
-  Times2
-  Concat
-}
-
-fn operator_combinations2(length: Int, acc: List(List(Operator2))) {
-  case length {
-    0 -> acc
-    _ ->
-      acc
-      |> list.map(fn(operators) { [Plus2, ..operators] })
-      |> list.append(acc |> list.map(fn(operators) { [Times2, ..operators] }))
-      |> list.append(acc |> list.map(fn(operators) { [Concat, ..operators] }))
-      |> operator_combinations2(length - 1, _)
-  }
-}
-
-fn parse(input: String) {
+fn parse(input: String) -> List(#(Int, List(Int))) {
   use line <- list.map(string.split(input, "\n"))
   let assert Ok(#(test_value, operands)) = string.split_once(line, ": ")
   let assert Ok(test_value) = int.parse(test_value)
