@@ -1,7 +1,9 @@
 import aoc/utils
+import gleam/float
 import gleam/int
 import gleam/list
 import gleam/string
+import gleam_community/maths/elementary as maths
 
 pub fn pt_1(input: String) -> Int {
   let equations = parse(input)
@@ -17,49 +19,41 @@ pub fn pt_1(input: String) -> Int {
 
 fn could_be_true(test_value: Int, operands: List(Int), part: Part) -> Bool {
   let assert [first, ..operands] = operands
-  use operators <- list.any(operator_combinations(list.length(operands), [[]], part))
-  let result = operands |> list.zip(operators) |> evaluate(first, _)
-  result == test_value
+  check(first, test_value, operands, part)
 }
 
-fn evaluate(initial: Int, operation: List(#(Int, Operator))) -> Int {
-  use acc, #(x, op) <- list.fold(operation, initial)
-  case op {
-    Plus -> acc + x
-    Times -> acc * x
-    Concatenate ->
-      int.parse(int.to_string(acc) <> int.to_string(x)) |> utils.unwrap
+fn check(acc: Int, target: Int, operands: List(Int), part: Part) -> Bool {
+  case operands {
+    [] -> acc == target
+    _ if acc > target -> False
+    [x, ..operands] -> {
+      case check(acc + x, target, operands, part) {
+        True -> True
+        False ->
+          case check(acc * x, target, operands, part), part {
+            True, _ -> True
+            False, Part1 -> False
+            False, Part2 -> check(concat(acc, x), target, operands, part)
+          }
+      }
+    }
   }
 }
 
-type Operator {
-  Plus
-  Times
-  Concatenate
+fn concat(a: Int, b: Int) -> Int {
+  let len =
+    b
+    |> int.to_float
+    |> maths.logarithm_10
+    |> utils.unwrap
+    |> float.floor
+  let shift = float.truncate(utils.unwrap(int.power(10, len +. 1.0)))
+  a * shift + b
 }
 
 type Part {
   Part1
   Part2
-}
-
-fn operator_combinations(length: Int, acc: List(List(Operator)), part: Part) -> List(List(Operator)) {
-  case length {
-    0 -> acc
-    _ -> {
-      let plus = acc |> list.map(fn(operators) { [Plus, ..operators] })
-      let times = acc |> list.map(fn(operators) { [Times, ..operators] })
-      let concat = case part {
-        Part1 -> []
-        Part2 -> acc |> list.map(fn(operators) { [Concatenate, ..operators] })
-      }
-      operator_combinations(
-        length - 1,
-        list.flatten([plus, times, concat]),
-        part,
-      )
-    }
-  }
 }
 
 pub fn pt_2(input: String) -> Int {
