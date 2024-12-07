@@ -104,12 +104,6 @@ fn parse(input: String) -> State(Position) {
         guard: Position(x:, y:),
         visited: set.insert(state.visited, Position(x:, y:)),
       )
-    "X" ->
-      State(
-        ..state,
-        map: dict.insert(state.map, Position(x:, y:), Empty),
-        visited: set.insert(state.visited, Position(x:, y:)),
-      )
     _ -> panic
   }
 }
