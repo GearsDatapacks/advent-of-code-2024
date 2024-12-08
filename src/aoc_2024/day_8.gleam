@@ -1,113 +1,112 @@
-import gleam/bool
 import gleam/dict
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/set
 import gleam/string
 
-pub fn pt_1(input: String) {
-  let #(grid, antennae) = parse(input)
-
-  let antinodes = find_antinodes(grid, antennae)
-
-  set.size(antinodes)
+pub fn pt_1(input: String) -> Int {
+  input
+  |> parse
+  |> find_antinodes
+  |> set.size
 }
 
-fn find_antinodes(grid, antennae) {
-  use antinodes, a, place <- dict.fold(grid, set.new())
-  case place {
-    Empty -> antinodes
-    Antenna(frequency) -> {
-      let assert Ok(antennae) = dict.get(antennae, frequency)
-      use antinodes, b <- list.fold(antennae, antinodes)
-      let difference = subtract(b, a)
-      use <- bool.guard(difference == Position(0, 0), antinodes)
-      let antinode1 = add(b, difference)
-      let antinode2 = subtract(a, difference)
-      let antinodes = case dict.has_key(grid, antinode1) {
-        False -> antinodes
-        True -> set.insert(antinodes, antinode1)
-      }
-      case dict.has_key(grid, antinode2) {
-        False -> antinodes
-        True -> set.insert(antinodes, antinode2)
-      }
-    }
+fn find_antinodes(map: Map) -> set.Set(Vector) {
+  use antinodes, _, antennae <- dict.fold(map.antennae, set.new())
+  use antinodes, #(a, b) <- list.fold(
+    list.combination_pairs(antennae),
+    antinodes,
+  )
+
+  let distance = subtract(b, a)
+  let antinode1 = add(b, distance)
+  let antinode2 = subtract(a, distance)
+  let antinodes = case within_bounds(antinode1, map.width, map.height) {
+    False -> antinodes
+    True -> set.insert(antinodes, antinode1)
+  }
+  case within_bounds(antinode2, map.width, map.height) {
+    False -> antinodes
+    True -> set.insert(antinodes, antinode2)
   }
 }
 
-pub fn pt_2(input: String) {
-  let #(grid, antennae) = parse(input)
-
-  let antinodes = find_antinodes2(grid, antennae)
-
-  set.size(antinodes)
+pub fn pt_2(input: String) -> Int {
+  input
+  |> parse
+  |> find_antinodes2
+  |> set.size
 }
 
-fn find_antinodes2(grid, antennae) {
-  use antinodes, a, place <- dict.fold(grid, set.new())
-  case place {
-    Empty -> antinodes
-    Antenna(frequency) -> {
-      let assert Ok(antennae) = dict.get(antennae, frequency)
-      use antinodes, b <- list.fold(antennae, antinodes)
-      use <- bool.guard(a == b, antinodes)
-      let antinodes = trace_line(grid, b, subtract(b, a), antinodes)
-      trace_line(grid, a, subtract(a, b), antinodes)
-    }
-  }
+fn find_antinodes2(map: Map) -> set.Set(Vector) {
+  use antinodes, _, antennae <- dict.fold(map.antennae, set.new())
+  use antinodes, #(a, b) <- list.fold(
+    list.combination_pairs(antennae),
+    antinodes,
+  )
+  let antinodes =
+    trace_line(b, subtract(b, a), antinodes, map.width, map.height)
+  trace_line(a, subtract(a, b), antinodes, map.width, map.height)
 }
 
-fn trace_line(grid, position, direction, antinodes) {
-  case dict.has_key(grid, position) {
+fn trace_line(
+  position: Vector,
+  direction: Vector,
+  antinodes: set.Set(Vector),
+  width: Int,
+  height: Int,
+) -> set.Set(Vector) {
+  case within_bounds(position, width, height) {
     True ->
       trace_line(
-        grid,
         add(position, direction),
         direction,
         set.insert(antinodes, position),
+        width,
+        height,
       )
     False -> antinodes
   }
 }
 
-type Place {
-  Empty
-  Antenna(String)
+type Vector {
+  Vector(x: Int, y: Int)
 }
 
-type Position {
-  Position(x: Int, y: Int)
+fn add(a: Vector, b: Vector) -> Vector {
+  Vector(x: a.x + b.x, y: a.y + b.y)
 }
 
-fn add(a: Position, b: Position) {
-  Position(x: a.x + b.x, y: a.y + b.y)
+fn subtract(a: Vector, b: Vector) -> Vector {
+  Vector(x: a.x - b.x, y: a.y - b.y)
 }
 
-fn subtract(a: Position, b: Position) {
-  Position(x: a.x - b.x, y: a.y - b.y)
+fn within_bounds(v: Vector, width: Int, height: Int) -> Bool {
+  v.x >= 0 && v.x <= width && v.y >= 0 && v.y <= height
 }
 
-fn parse(input: String) {
-  use acc, line, y <- list.index_fold(string.split(input, "\n"), #(
-    dict.new(),
-    dict.new(),
-  ))
-  use #(grid, antennae), char, x <- list.index_fold(
-    string.to_graphemes(line),
-    acc,
+type Map {
+  Map(antennae: dict.Dict(String, List(Vector)), width: Int, height: Int)
+}
+
+fn parse(input: String) -> Map {
+  use map, line, y <- list.index_fold(
+    string.split(input, "\n"),
+    Map(antennae: dict.new(), width: 0, height: 0),
   )
-  let position = Position(x:, y:)
+  use map, char, x <- list.index_fold(string.to_graphemes(line), map)
   case char {
-    "." -> #(dict.insert(grid, position, Empty), antennae)
-    _ -> #(
-      dict.insert(grid, position, Antenna(char)),
-      dict.upsert(antennae, char, fn(antennae) {
-        case antennae {
-          None -> [position]
-          Some(antennae) -> [position, ..antennae]
-        }
-      }),
-    )
+    "." -> Map(..map, width: x, height: y)
+    _ -> {
+      let position = Vector(x:, y:)
+      let antennae =
+        dict.upsert(map.antennae, char, fn(antennae) {
+          case antennae {
+            None -> [position]
+            Some(antennae) -> [position, ..antennae]
+          }
+        })
+      Map(antennae:, width: x, height: y)
+    }
   }
 }
