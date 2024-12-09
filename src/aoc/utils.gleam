@@ -15,11 +15,30 @@ fn do_index_find(list: List(a), f: fn(a, Int) -> Bool, i: Int) -> Result(a, Nil)
   }
 }
 
-pub fn index_find_map(list: List(a), f: fn(a, Int) -> Result(b, c)) -> Result(b, Nil) {
+pub fn find_with_index(
+  list: List(a),
+  f: fn(a) -> Bool,
+) -> Result(#(a, Int), Nil) {
+  index_find_map(list, fn(element, i) {
+    case f(element) {
+      True -> Ok(#(element, i))
+      False -> Error(Nil)
+    }
+  })
+}
+
+pub fn index_find_map(
+  list: List(a),
+  f: fn(a, Int) -> Result(b, c),
+) -> Result(b, Nil) {
   do_index_find_map(list, f, 0)
 }
 
-fn do_index_find_map(list: List(a), f: fn(a, Int) -> Result(b, c), i: Int) -> Result(b, Nil) {
+fn do_index_find_map(
+  list: List(a),
+  f: fn(a, Int) -> Result(b, c),
+  i: Int,
+) -> Result(b, Nil) {
   case list {
     [] -> Error(Nil)
     [first, ..rest] ->
@@ -56,4 +75,20 @@ pub fn insert(list: List(a), index: Int, value: a) -> List(a) {
 pub fn unwrap(result: Result(ok, error)) -> ok {
   let assert Ok(inner) = result
   inner
+}
+
+pub fn remove(list, index) {
+  let #(a, b) = list.split(list, index)
+  case b {
+    [] -> Error(Nil)
+    [_, ..b] -> Ok(list.append(a, b))
+  }
+}
+
+pub fn set(list, index, value) {
+  let #(a, b) = list.split(list, index)
+  case b {
+    [] -> Error(Nil)
+    [_, ..b] -> Ok(list.append(a, [value, ..b]))
+  }
 }
