@@ -45,18 +45,54 @@ pub fn move(position: Position, direction: Direction) -> Position {
 
 pub fn pt_2(input: String) -> Int {
   let state = parse(input)
-  let visited = find_visited_positions(state)
-  let state =
-    State(
-      ..state,
-      visited: set.new() |> set.insert(#(state.guard, state.direction)),
-    )
-  use count, position <- set.fold(visited, 0)
-  let new_state =
-    State(..state, map: dict.insert(state.map, position, Obstructed))
-  case detect_loop(new_state) {
-    False -> count
-    True -> count + 1
+  let visited_directions =
+    set.new() |> set.insert(#(state.guard, state.direction))
+  detect_loops(state, visited_directions, 0)
+}
+
+fn detect_loops(
+  state: State(Position),
+  visited_directions: Set(#(Position, Direction)),
+  count: Int,
+) -> Int {
+  let new_position = move(state.guard, state.direction)
+  case dict.get(state.map, new_position) {
+    Error(_) -> count
+    Ok(Empty) -> {
+      let count = case
+        set.contains(state.visited, new_position)
+      {
+        True -> count
+        False -> {
+          let new_state =
+            State(
+              ..state,
+              map: dict.insert(state.map, new_position, Obstructed),
+              visited: visited_directions,
+            )
+          case detect_loop(new_state) {
+            False -> count
+            True -> count + 1
+          }
+        }
+      }
+
+      detect_loops(
+        State(
+          ..state,
+          guard: new_position,
+          visited: set.insert(state.visited, new_position),
+        ),
+        set.insert(visited_directions, #(new_position, state.direction)),
+        count,
+      )
+    }
+    Ok(Obstructed) ->
+      detect_loops(
+        State(..state, direction: rotate(state.direction)),
+        visited_directions,
+        count,
+      )
   }
 }
 
