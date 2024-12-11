@@ -1,82 +1,56 @@
 import aoc/utils
-import gleam/dict.{type Dict}
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/result
 import gleam/string
 import gleam_community/maths/elementary as maths
+import rememo/memo
 
 pub fn pt_1(input: String) -> Stone {
   input |> parse |> count_stones(25)
 }
 
-type Stones {
-  One(Stone)
-  Two(Stone, Stone)
-}
-
 type Stone =
   Int
 
-fn blink(stone: Stone) -> Stones {
-  case stone, digits(stone) {
-    0, _ -> One(1)
-    stone, length if length % 2 == 0 -> split(stone, length / 2)
-    _, _ -> One(stone * 2024)
-  }
-}
-
 fn digits(x: Stone) -> Int {
-  case x {
-    0 -> 1
-    _ ->
-      {
-        x
-        |> int.to_float
-        |> maths.logarithm_10
-        |> utils.unwrap
-        |> float.truncate
-      }
-      + 1
+  {
+    x
+    |> int.to_float
+    |> maths.logarithm_10
+    |> result.unwrap(0.0)
+    |> float.truncate
   }
+  + 1
 }
 
-fn split(stone: Stone, index: Int) -> Stones {
+fn split(stone: Stone, index: Int) -> #(Stone, Stone) {
   let splitter =
     int.power(10, int.to_float(index)) |> utils.unwrap |> float.truncate
-  Two(stone / splitter, stone % splitter)
+  #(stone / splitter, stone % splitter)
 }
 
-fn count_stone(
-  stone: Stone,
-  steps: Int,
-  known: Dict(#(Stone, Int), Int),
-) -> #(Int, Dict(#(Stone, Int), Int)) {
+fn count_stone(stone: Stone, steps: Int, cache) -> Int {
+  use <- memo.memoize(cache, #(stone, steps))
   case steps {
-    0 -> #(1, known)
+    0 -> 1
     _ ->
-      case dict.get(known, #(stone, steps)) {
-        Ok(count) -> #(count, known)
-        Error(_) -> {
-          let #(count, known) = case blink(stone) {
-            One(stone) -> count_stone(stone, steps - 1, known)
-            Two(a, b) -> {
-              let #(count, known) = count_stone(a, steps - 1, known)
-              let #(count2, known) = count_stone(b, steps - 1, known)
-              #(count + count2, known)
-            }
-          }
-          #(count, dict.insert(known, #(stone, steps), count))
+      case stone, digits(stone) {
+        0, _ -> count_stone(1, steps - 1, cache)
+        stone, length if length % 2 == 0 -> {
+          let #(upper, lower) = split(stone, length / 2)
+          count_stone(upper, steps - 1, cache)
+          + count_stone(lower, steps - 1, cache)
         }
+        _, _ -> count_stone(stone * 2024, steps - 1, cache)
       }
   }
 }
 
 fn count_stones(stones: List(Stone), steps: Int) -> Int {
-  list.fold(stones, #(0, dict.new()), fn(acc, stone) {
-    let #(count, known) = count_stone(stone, steps, acc.1)
-    #(count + acc.0, known)
-  }).0
+  use cache <- memo.create
+  list.fold(stones, 0, fn(acc, stone) { acc + count_stone(stone, steps, cache) })
 }
 
 pub fn pt_2(input: String) -> Stone {
