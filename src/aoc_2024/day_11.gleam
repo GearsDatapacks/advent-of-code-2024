@@ -6,18 +6,8 @@ import gleam/list
 import gleam/string
 import gleam_community/maths/elementary as maths
 
-pub fn pt_1(input: String) {
-  let stones = parse(input)
-  iterate(stones, 25) |> list.length
-}
-
-fn iterate(stones: List(Int), count: Int) -> List(Int) {
-  case count {
-    0 -> stones
-    _ -> {
-      iterate(map_stones(stones, []), count - 1)
-    }
-  }
+pub fn pt_1(input: String) -> Stone {
+  input |> parse |> count_stones(25)
 }
 
 type Stones {
@@ -27,17 +17,6 @@ type Stones {
 
 type Stone =
   Int
-
-fn map_stones(stones: List(Stone), acc: List(Stone)) -> List(Stone) {
-  case stones {
-    [] -> acc
-    [stone, ..stones] ->
-      case blink(stone) {
-        One(stone) -> map_stones(stones, [stone, ..acc])
-        Two(a, b) -> map_stones(stones, [a, b, ..acc])
-      }
-  }
-}
 
 fn blink(stone: Stone) -> Stones {
   case stone, digits(stone) {
@@ -62,10 +41,10 @@ fn digits(x: Stone) -> Int {
   }
 }
 
-fn split(number: Int, index: Int) -> Stones {
+fn split(stone: Stone, index: Int) -> Stones {
   let splitter =
     int.power(10, int.to_float(index)) |> utils.unwrap |> float.truncate
-  Two(number / splitter, number % splitter)
+  Two(stone / splitter, stone % splitter)
 }
 
 fn count_stone(
@@ -93,14 +72,17 @@ fn count_stone(
   }
 }
 
-pub fn pt_2(input: String) {
-  let stones = parse(input)
+fn count_stones(stones: List(Stone), steps: Int) -> Int {
   list.fold(stones, #(0, dict.new()), fn(acc, stone) {
-    let #(count, known) = count_stone(stone, 75, acc.1)
+    let #(count, known) = count_stone(stone, steps, acc.1)
     #(count + acc.0, known)
   }).0
 }
 
-fn parse(input: String) {
+pub fn pt_2(input: String) -> Stone {
+  input |> parse |> count_stones(75)
+}
+
+fn parse(input: String) -> List(Stone) {
   string.split(input, " ") |> list.filter_map(int.parse)
 }
