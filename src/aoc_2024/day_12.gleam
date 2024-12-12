@@ -4,100 +4,67 @@ import gleam/list
 import gleam/set.{type Set}
 import gleam/string
 
-pub fn pt_1(input: String) {
+pub fn pt_1(input: String) -> Int {
   let map = parse(input)
-  calculate_fences(map, dict.keys(map), 0)
-}
-
-fn calculate_fences(map, positions, sum) {
-  case positions {
-    [] -> sum
-    [position, ..positions] ->
-      case dict.get(map, position) {
-        Ok(plot) -> {
-          let #(map, cost) = calculate_cost(map, position, plot)
-          calculate_fences(map, positions, sum + cost)
-        }
-        Error(_) -> calculate_fences(map, positions, sum)
-      }
-  }
-}
-
-fn calculate_cost(map, position, plot) {
-  let #(map, region) = find_region(map, position, plot, dict.new())
-  let area = dict.size(region)
-  let #(map, perimeter) =
-    dict.fold(region, #(map, 0), fn(acc, position, adjacent) {
-      let #(map, perimeter) = acc
-      #(dict.delete(map, position), perimeter + 4 - adjacent)
-    })
-  #(map, area * perimeter)
-}
-
-fn find_region(map, position, plot, region) {
-  use <- bool.guard(dict.has_key(region, position), #(map, region))
-  let region = dict.insert(region, position, 0)
-  let #(map, region, count) = {
-    use #(map, region, count), direction <- list.fold(directions, #(
-      map,
-      region,
-      0,
-    ))
-    let position = add(position, direction)
-    case dict.get(map, position) {
-      Ok(p) if p == plot -> {
-        let #(map, region) = find_region(map, position, plot, region)
-        #(map, region, count + 1)
-      }
-      _ -> #(map, region, count)
-    }
-  }
-  #(map, dict.insert(region, position, count))
+  calculate_fences(map, dict.keys(map), 0, Part1)
 }
 
 const directions = [
-  Position(r: 1, c: 0),
-  Position(r: -1, c: 0),
-  Position(r: 0, c: 1),
-  Position(r: 0, c: -1),
+  Vector(x: 1, y: 0),
+  Vector(x: -1, y: 0),
+  Vector(x: 0, y: 1),
+  Vector(x: 0, y: -1),
 ]
 
-pub fn pt_2(input: String) {
+pub fn pt_2(input: String) -> Int {
   let map = parse(input)
-  calculate_fences2(map, dict.keys(map), 0)
+  calculate_fences(map, dict.keys(map), 0, Part2)
 }
 
-fn calculate_fences2(map, positions, sum) {
+fn calculate_fences(
+  map: Dict(Vector, Plot),
+  positions: List(Vector),
+  sum: Int,
+  part: Part,
+) -> Int {
   case positions {
     [] -> sum
     [position, ..positions] ->
       case dict.get(map, position) {
         Ok(plot) -> {
-          let #(map, cost) = calculate_cost2(map, position, plot)
-          calculate_fences2(map, positions, sum + cost)
+          let #(map, cost) = calculate_cost(map, position, plot, part)
+          calculate_fences(map, positions, sum + cost, part)
         }
-        Error(_) -> calculate_fences2(map, positions, sum)
+        Error(_) -> calculate_fences(map, positions, sum, part)
       }
   }
 }
 
-fn calculate_cost2(map, position, plot) {
+fn calculate_cost(
+  map: Dict(Vector, Plot),
+  position: Vector,
+  plot: Plot,
+  part: Part,
+) -> #(Dict(Vector, Plot), Int) {
   let #(map, region, edges) =
-    find_region2(map, position, plot, set.new(), set.new())
+    find_region(map, position, plot, set.new(), set.new())
   let area = set.size(region)
   let map =
     set.fold(region, map, fn(map, position) { dict.delete(map, position) })
-  let perimeter = calculate_perimeter(edges, 0)
+  let perimeter = case part {
+    Part1 -> set.size(edges)
+    Part2 -> count_edges(edges, 0)
+  }
   #(map, area * perimeter)
 }
 
-fn find_region2(
-  map: Dict(Position, a),
-  position: Position,
-  plot: a,
-  region: Set(Position),
+fn find_region(
+  map: Dict(Vector, Plot),
+  position: Vector,
+  plot: Plot,
+  region: Set(Vector),
   edges: Set(Edge),
-) -> #(Dict(Position, a), Set(Position), Set(Edge)) {
+) -> #(Dict(Vector, Plot), Set(Vector), Set(Edge)) {
   use <- bool.guard(set.contains(region, position), #(map, region, edges))
   let region = set.insert(region, position)
   let #(map, region, edges) = {
@@ -110,7 +77,7 @@ fn find_region2(
     case dict.get(map, new_position) {
       Ok(p) if p == plot -> {
         let #(map, region, edges) =
-          find_region2(map, new_position, plot, region, edges)
+          find_region(map, new_position, plot, region, edges)
         #(map, region, edges)
       }
       _ -> #(map, region, set.insert(edges, Edge(position, new_position)))
@@ -119,51 +86,64 @@ fn find_region2(
   #(map, set.insert(region, position), edges)
 }
 
-fn calculate_perimeter(edges: Set(Edge), count) {
+fn count_edges(edges: Set(Edge), count: Int) -> Int {
   case set.to_list(edges) {
     [] -> count
     [edge, ..] -> {
-      let edges = trace_edge(edges, edge)
-      calculate_perimeter(edges, count + 1)
+      let direction = sub(edge.edge_position, edge.empty_position)
+      let #(left, right) = perpendicular(direction)
+      let edges = edges |> trace_edge(edge, left) |> trace_edge(edge, right)
+      count_edges(edges, count + 1)
     }
   }
 }
 
-fn trace_edge(edges: Set(Edge), edge) {
-  use <- bool.guard(!set.contains(edges, edge), edges)
+fn trace_edge(edges: Set(Edge), edge: Edge, direction: Vector) -> Set(Edge) {
   let edges = set.delete(edges, edge)
-  let direction = sub(edge.edge_position, edge.empty_position)
-  let #(a, b) = perpendicular(direction)
-  let edge1 = Edge(add(edge.edge_position, a), add(edge.empty_position, a))
-  let edge2 = Edge(add(edge.edge_position, b), add(edge.empty_position, b))
-  edges |> trace_edge(edge1) |> trace_edge(edge2)
-}
-
-type Position {
-  Position(r: Int, c: Int)
-}
-
-fn add(a: Position, b: Position) {
-  Position(r: a.r + b.r, c: a.c + b.c)
-}
-
-fn sub(a: Position, b: Position) {
-  Position(r: a.r - b.r, c: a.c - b.c)
-}
-
-fn perpendicular(direction: Position) {
-  case direction.r {
-    0 -> #(Position(r: 1, c: 0), Position(r: -1, c: 0))
-    _ -> #(Position(r: 0, c: 1), Position(r: 0, c: -1))
+  let new_edge =
+    Edge(
+      edge_position: add(edge.edge_position, direction),
+      empty_position: add(edge.empty_position, direction),
+    )
+  case set.contains(edges, new_edge) {
+    True -> trace_edge(edges, new_edge, direction)
+    False -> edges
   }
 }
 
-type Edge {
-  Edge(edge_position: Position, empty_position: Position)
+type Vector {
+  Vector(x: Int, y: Int)
 }
 
-fn parse(input) {
-  use map, line, r <- list.index_fold(string.split(input, "\n"), dict.new())
-  use map, char, c <- list.index_fold(string.split(line, ""), map)
-  dict.insert(map, Position(r:, c:), char)
+fn add(a: Vector, b: Vector) {
+  Vector(x: a.x + b.x, y: a.y + b.y)
+}
+
+fn sub(a: Vector, b: Vector) {
+  Vector(x: a.x - b.x, y: a.y - b.y)
+}
+
+fn perpendicular(direction: Vector) -> #(Vector, Vector) {
+  case direction.x {
+    0 -> #(Vector(x: 1, y: 0), Vector(x: -1, y: 0))
+    _ -> #(Vector(x: 0, y: 1), Vector(x: 0, y: -1))
+  }
+}
+
+type Plot =
+  String
+
+type Part {
+  Part1
+  Part2
+}
+
+type Edge {
+  Edge(edge_position: Vector, empty_position: Vector)
+}
+
+fn parse(input: String) -> Dict(Vector, Plot) {
+  use map, line, y <- list.index_fold(string.split(input, "\n"), dict.new())
+  use map, char, x <- list.index_fold(string.split(line, ""), map)
+  dict.insert(map, Vector(x:, y:), char)
 }
