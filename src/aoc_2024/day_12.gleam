@@ -46,8 +46,7 @@ fn calculate_cost(
   plot: Plot,
   part: Part,
 ) -> #(Dict(Vector, Plot), Int) {
-  let #(map, region, edges) =
-    find_region(map, position, plot, set.new(), set.new())
+  let #(region, edges) = find_region(map, position, plot, set.new(), set.new())
   let area = set.size(region)
   let map =
     set.fold(region, map, fn(map, position) { dict.delete(map, position) })
@@ -64,26 +63,26 @@ fn find_region(
   plot: Plot,
   region: Set(Vector),
   edges: Set(Edge),
-) -> #(Dict(Vector, Plot), Set(Vector), Set(Edge)) {
-  use <- bool.guard(set.contains(region, position), #(map, region, edges))
+) -> #(Set(Vector), Set(Edge)) {
+  use <- bool.guard(set.contains(region, position), #(region, edges))
   let region = set.insert(region, position)
-  let #(map, region, edges) = {
-    use #(map, region, edges), direction <- list.fold(directions, #(
-      map,
-      region,
-      edges,
-    ))
-    let new_position = add(position, direction)
-    case dict.get(map, new_position) {
-      Ok(p) if p == plot -> {
-        let #(map, region, edges) =
-          find_region(map, new_position, plot, region, edges)
-        #(map, region, edges)
+
+  let #(region, edges) =
+    list.fold(directions, #(region, edges), fn(acc, direction) {
+      let #(region, edges) = acc
+      let new_position = add(position, direction)
+
+      case dict.get(map, new_position) {
+        Ok(p) if p == plot -> {
+          let #(region, edges) =
+            find_region(map, new_position, plot, region, edges)
+          #(region, edges)
+        }
+        _ -> #(region, set.insert(edges, Edge(position, new_position)))
       }
-      _ -> #(map, region, set.insert(edges, Edge(position, new_position)))
-    }
-  }
-  #(map, set.insert(region, position), edges)
+    })
+
+  #(set.insert(region, position), edges)
 }
 
 fn count_edges(edges: Set(Edge), count: Int) -> Int {
