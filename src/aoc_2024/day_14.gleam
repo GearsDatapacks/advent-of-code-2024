@@ -1,18 +1,21 @@
-import gleam/set.{type Set}
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/order
+import gleam/set.{type Set}
 import gleam/string
 
 const width = 101
 
 const height = 103
 
-pub fn pt_1(input: String) {
-  let robots = parse(input)
-  let robots = update_robots(robots, 100)
-  let quadrants = file_quadrants(robots)
+pub fn pt_1(input: String) -> Int {
+  let quadrants =
+    input
+    |> parse
+    |> list.map(update_robot(_, 100))
+    |> file_quadrants
+
   quadrants.top_left
   * quadrants.top_right
   * quadrants.bottom_left
@@ -23,28 +26,14 @@ type Quadrants {
   Quadrants(top_left: Int, top_right: Int, bottom_left: Int, bottom_right: Int)
 }
 
-fn update_robots(robots: List(Robot), count) {
-  case count {
-    0 -> robots
-    _ -> update_robots(list.map(robots, update_robot), count - 1)
-  }
+fn update_robot(robot: Robot, count: Int) -> Robot {
+  let position = add(robot.position, mul(robot.velocity, count))
+  let assert Ok(x) = int.modulo(position.x, width)
+  let assert Ok(y) = int.modulo(position.y, height)
+  Robot(..robot, position: Vector(x:, y:))
 }
 
-fn update_robot(robot: Robot) {
-  let position = add(robot.position, robot.velocity)
-  let position = Vector(x: wrap(position.x, width), y: wrap(position.y, height))
-  Robot(..robot, position:)
-}
-
-fn wrap(value, by) {
-  let value = value % by
-  case value < 0 {
-    False -> value
-    True -> wrap(value + by, by)
-  }
-}
-
-fn file_quadrants(robots: List(Robot)) {
+fn file_quadrants(robots: List(Robot)) -> Quadrants {
   use quadrants, robot <- list.fold(robots, Quadrants(0, 0, 0, 0))
   case
     int.compare(robot.position.x, width / 2),
@@ -62,32 +51,43 @@ fn file_quadrants(robots: List(Robot)) {
   }
 }
 
-pub fn pt_2(input: String) {
-  let robots = parse(input)
-  loop(robots, 0)
-  panic
+pub fn pt_2(input: String) -> Int {
+  input
+  |> parse
+  |> loop(0)
 }
 
-fn loop(robots: List(Robot), count) {
+fn loop(robots: List(Robot), count: Int) -> Int {
   case count {
-    10000 -> Nil
+    10_000 -> panic as "Tree not found in 10k iterations"
     _ -> {
-      io.println_error(int.to_string(count))
-      print_robots(set.from_list(list.map(robots, fn(robot) {robot.position})), 0, 0, "")
-      loop(list.map(robots, update_robot), count + 1)
+      let text =
+        print_robots(
+          set.from_list(list.map(robots, fn(robot) { robot.position })),
+          0,
+          0,
+          "",
+        )
+      // You're pretty unlucky if the robots line up like this before the actual tree
+      case string.contains(text, "###############################") {
+        True -> {
+          io.println(text)
+          count
+        }
+        False -> loop(list.map(robots, update_robot(_, 1)), count + 1)
+      }
     }
   }
 }
 
-fn print_robots(robots: Set(Vector), x, y, str) {
+fn print_robots(robots: Set(Vector), x: Int, y: Int, str: String) -> String {
   case x >= width, y >= height {
-    _, True -> io.println_error(str <> "\n")
+    _, True -> str
     True, False -> {
       print_robots(robots, 0, y + 1, str <> "\n")
     }
     False, False -> {
-      let robot =
-        set.contains(robots, Vector(x:, y:))
+      let robot = set.contains(robots, Vector(x:, y:))
       let print = case robot {
         False -> "."
         True -> "#"
@@ -97,7 +97,7 @@ fn print_robots(robots: Set(Vector), x, y, str) {
   }
 }
 
-fn parse(input) {
+fn parse(input: String) -> List(Robot) {
   use line <- list.map(string.split(input, "\n"))
   let assert "p=" <> line = line
   let assert Ok(#(position, velocity)) = string.split_once(line, " v=")
@@ -106,7 +106,7 @@ fn parse(input) {
   Robot(position:, velocity:)
 }
 
-fn parse_vector(input) {
+fn parse_vector(input: String) -> Vector {
   let assert Ok(#(x, y)) = string.split_once(input, ",")
   let assert Ok(x) = int.parse(x)
   let assert Ok(y) = int.parse(y)
@@ -121,6 +121,10 @@ type Vector {
   Vector(x: Int, y: Int)
 }
 
-fn add(a: Vector, b: Vector) {
+fn add(a: Vector, b: Vector) -> Vector {
   Vector(x: a.x + b.x, y: a.y + b.y)
+}
+
+fn mul(v: Vector, n: Int) -> Vector {
+  Vector(x: v.x * n, y: v.y * n)
 }
