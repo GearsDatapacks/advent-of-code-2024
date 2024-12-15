@@ -3,13 +3,13 @@ import gleam/io
 import gleam/list
 import gleam/string
 
-pub fn pt_1(input: String) {
+pub fn pt_1(input: String) -> Int {
   parse(input)
   |> iterate
   |> score
 }
 
-fn iterate(warehouse: Warehouse) {
+fn iterate(warehouse: Warehouse) -> Warehouse {
   case warehouse.moves {
     [] -> warehouse
     [move, ..moves] -> {
@@ -20,7 +20,7 @@ fn iterate(warehouse: Warehouse) {
   }
 }
 
-fn try_move(move: Move, warehouse: Warehouse) {
+fn try_move(move: Move, warehouse: Warehouse) -> Warehouse {
   case can_move(move, warehouse) {
     False -> warehouse
     True -> {
@@ -34,36 +34,7 @@ fn try_move(move: Move, warehouse: Warehouse) {
   }
 }
 
-fn do_move(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
-  case dict.get(warehouse.map, position) {
-    Error(_) -> warehouse
-    Ok(Wall) -> warehouse
-    Ok(Empty) ->
-      Warehouse(..warehouse, map: dict.insert(warehouse.map, position, tile))
-    Ok(Box) ->
-      do_move(
-        move,
-        move_position(move, position),
-        Box,
-        Warehouse(..warehouse, map: dict.insert(warehouse.map, position, tile)),
-      )
-    Ok(LeftBox) | Ok(RightBox) -> panic
-  }
-}
-
-fn can_move(move: Move, warehouse: Warehouse) {
-  let new_position = move_position(move, warehouse.robot_position)
-  case dict.get(warehouse.map, new_position) {
-    Error(_) -> False
-    Ok(Wall) -> False
-    Ok(Empty) -> True
-    Ok(Box) ->
-      can_move(move, Warehouse(..warehouse, robot_position: new_position))
-    Ok(LeftBox) | Ok(RightBox) -> panic
-  }
-}
-
-fn move_position(move: Move, p: Position) {
+fn move_position(move: Move, p: Position) -> Position {
   case move {
     Down -> Position(r: p.r + 1, c: p.c)
     Up -> Position(r: p.r - 1, c: p.c)
@@ -72,17 +43,9 @@ fn move_position(move: Move, p: Position) {
   }
 }
 
-fn score(warehouse: Warehouse) {
-  use sum, Position(r:, c:), tile <- dict.fold(warehouse.map, 0)
-  case tile {
-    Box -> sum + r * 100 + c
-    _ -> sum
-  }
-}
-
 const size = 50
 
-fn print_grid(warehouse: Warehouse, c: Int, r: Int, str: String) {
+fn print_grid(warehouse: Warehouse, c: Int, r: Int, str: String) -> Nil {
   case c >= size, r >= size {
     _, True -> {
       io.println(str)
@@ -105,14 +68,14 @@ fn print_grid(warehouse: Warehouse, c: Int, r: Int, str: String) {
   }
 }
 
-fn parse(input: String) {
+fn parse(input: String) -> Warehouse {
   let assert Ok(#(grid, moves)) = string.split_once(input, "\n\n")
   let #(map, robot_position) = parse_grid(grid)
   let moves = parse_moves(moves)
   Warehouse(moves:, map:, robot_position:)
 }
 
-fn parse_grid(input: String) {
+fn parse_grid(input: String) -> #(dict.Dict(Position, Tile), Position) {
   use acc, line, r <- list.index_fold(string.split(input, "\n"), #(
     dict.new(),
     Position(0, 0),
@@ -123,43 +86,30 @@ fn parse_grid(input: String) {
     "#" -> #(dict.insert(grid, position, Wall), robot)
     "O" -> #(dict.insert(grid, position, Box), robot)
     "." -> #(dict.insert(grid, position, Empty), robot)
+    "[" -> #(dict.insert(grid, position, LeftBox), robot)
+    "]" -> #(dict.insert(grid, position, RightBox), robot)
     "@" -> #(dict.insert(grid, position, Empty), position)
     _ -> panic
   }
 }
 
-pub fn pt_2(input: String) {
-  parse2(input)
-  |> iterate2
-  |> score2
+pub fn pt_2(input: String) -> Int {
+  input
+  |> widen
+  |> parse
+  |> iterate
+  |> score
 }
 
-fn iterate2(warehouse: Warehouse) {
-  case warehouse.moves {
-    [] -> warehouse
-    [move, ..moves] -> {
-      let warehouse = try_move2(move, warehouse)
-      // print_grid2(warehouse, 0, 0, "")
-      iterate2(Warehouse(..warehouse, moves:))
-    }
-  }
+fn widen(input: String) -> String {
+  input
+  |> string.replace("#", "##")
+  |> string.replace("O", "[]")
+  |> string.replace(".", "..")
+  |> string.replace("@", "@.")
 }
 
-fn try_move2(move: Move, warehouse: Warehouse) {
-  case can_move2(move, warehouse) {
-    False -> warehouse
-    True -> {
-      let warehouse =
-        Warehouse(
-          ..warehouse,
-          robot_position: move_position(move, warehouse.robot_position),
-        )
-      do_move2(move, warehouse.robot_position, Empty, warehouse)
-    }
-  }
-}
-
-fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
+fn do_move(move: Move, position: Position, tile: Tile, warehouse: Warehouse) -> Warehouse {
   let new_position = move_position(move, position)
   case dict.get(warehouse.map, position), move {
     Error(_), _ -> warehouse
@@ -171,7 +121,7 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
       case dict.get(warehouse.map, moved) {
         Ok(RightBox) -> {
           let warehouse =
-            do_move2(
+            do_move(
               move,
               new_position,
               LeftBox,
@@ -182,15 +132,10 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
               ),
             )
 
-          do_move2(
-            move,
-            move_position(Right, new_position),
-            RightBox,
-            warehouse,
-          )
+          do_move(move, move_position(Right, new_position), RightBox, warehouse)
         }
         _ ->
-          do_move2(
+          do_move(
             move,
             new_position,
             LeftBox,
@@ -206,7 +151,7 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
       case dict.get(warehouse.map, moved) {
         Ok(LeftBox) -> {
           let warehouse =
-            do_move2(
+            do_move(
               move,
               new_position,
               RightBox,
@@ -217,10 +162,10 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
               ),
             )
 
-          do_move2(move, move_position(Left, new_position), LeftBox, warehouse)
+          do_move(move, move_position(Left, new_position), LeftBox, warehouse)
         }
         _ ->
-          do_move2(
+          do_move(
             move,
             new_position,
             LeftBox,
@@ -232,7 +177,7 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
       }
     }
     Ok(new_tile), _ ->
-      do_move2(
+      do_move(
         move,
         new_position,
         new_tile,
@@ -241,15 +186,15 @@ fn do_move2(move: Move, position: Position, tile: Tile, warehouse: Warehouse) {
   }
 }
 
-fn can_move2(move: Move, warehouse: Warehouse) {
+fn can_move(move: Move, warehouse: Warehouse) -> Bool {
   let new_position = move_position(move, warehouse.robot_position)
   case dict.get(warehouse.map, new_position), move {
     Error(_), _ -> False
     Ok(Wall), _ -> False
     Ok(Empty), _ -> True
     Ok(LeftBox), Up | Ok(LeftBox), Down ->
-      can_move2(move, Warehouse(..warehouse, robot_position: new_position))
-      && can_move2(
+      can_move(move, Warehouse(..warehouse, robot_position: new_position))
+      && can_move(
         move,
         Warehouse(
           ..warehouse,
@@ -257,29 +202,28 @@ fn can_move2(move: Move, warehouse: Warehouse) {
         ),
       )
     Ok(RightBox), Up | Ok(RightBox), Down ->
-      can_move2(move, Warehouse(..warehouse, robot_position: new_position))
-      && can_move2(
+      can_move(move, Warehouse(..warehouse, robot_position: new_position))
+      && can_move(
         move,
         Warehouse(
           ..warehouse,
           robot_position: move_position(Left, new_position),
         ),
       )
-    Ok(LeftBox), _ | Ok(RightBox), _ ->
-      can_move2(move, Warehouse(..warehouse, robot_position: new_position))
-    Ok(Box), _ -> panic
+    Ok(LeftBox), _ | Ok(RightBox), _ | Ok(Box), _ ->
+      can_move(move, Warehouse(..warehouse, robot_position: new_position))
   }
 }
 
-fn score2(warehouse: Warehouse) {
+fn score(warehouse: Warehouse) -> Int {
   use sum, Position(r:, c:), tile <- dict.fold(warehouse.map, 0)
   case tile {
-    LeftBox -> sum + r * 100 + c
+    LeftBox | Box -> sum + r * 100 + c
     _ -> sum
   }
 }
 
-fn print_grid2(warehouse: Warehouse, c: Int, r: Int, str: String) {
+fn print_grid2(warehouse: Warehouse, c: Int, r: Int, str: String) -> Nil {
   case c >= size * 2, r >= size {
     _, True -> {
       io.println(str)
@@ -303,35 +247,7 @@ fn print_grid2(warehouse: Warehouse, c: Int, r: Int, str: String) {
   }
 }
 
-fn parse2(input: String) {
-  let assert Ok(#(grid, moves)) = string.split_once(input, "\n\n")
-  let #(map, robot_position) = parse_grid2(grid)
-  let moves = parse_moves(moves)
-  Warehouse(moves:, map:, robot_position:)
-}
-
-fn parse_grid2(input: String) {
-  use acc, line, r <- list.index_fold(string.split(input, "\n"), #(
-    dict.new(),
-    Position(0, 0),
-  ))
-  use #(grid, robot), char, c <- list.index_fold(string.to_graphemes(line), acc)
-  let c = c * 2
-  let position1 = Position(r:, c:)
-  let position2 = Position(r:, c: c + 1)
-  let insert = fn(tile1, tile2) {
-    grid |> dict.insert(position1, tile1) |> dict.insert(position2, tile2)
-  }
-  case char {
-    "#" -> #(insert(Wall, Wall), robot)
-    "O" -> #(insert(LeftBox, RightBox), robot)
-    "." -> #(insert(Empty, Empty), robot)
-    "@" -> #(insert(Empty, Empty), position1)
-    _ -> panic
-  }
-}
-
-fn parse_moves(input: String) {
+fn parse_moves(input: String) -> List(Move) {
   use line <- list.flat_map(string.split(input, "\n"))
   use char <- list.map(string.to_graphemes(line))
   case char {
