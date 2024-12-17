@@ -21,6 +21,7 @@ gleam_community_maths = ">= 1.1.1 and < 2.0.0"
 gleam_deque = ">= 1.0.0 and < 2.0.0"
 pocket_watch = ">= 1.0.0 and < 2.0.0"
 rememo = ">= 3.1.0 and < 4.0.0"
+gleamy_structures = ">= 1.1.0 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
@@ -41,3 +42,4 @@ gleeunit = ">= 1.0.0 and < 2.0.0"
 13 = { pt_1 = 37686, pt_2 = 77204516023437 }
 14 = { pt_1 = 218433348, pt_2 = 6512 }
 15 = { pt_1 = 1371036, pt_2 = 1392847 }
+16 = { pt_1 = 75416 }
