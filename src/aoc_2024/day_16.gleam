@@ -1,12 +1,11 @@
 import aoc/utils
 import gleam/dict.{type Dict}
 import gleam/int
-import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/pair
 import gleam/result
-import gleam/set
+import gleam/set.{type Set}
 import gleam/string
 import gleamy/priority_queue as queue
 
@@ -17,116 +16,150 @@ pub fn pt_1(input: String) {
   let queue =
     queue.new(fn(a: #(Position, Direction, Int), b) { int.compare(a.2, b.2) })
     |> queue.push(#(start, East, 0))
-  find_paths(map, queue, scores, dict.new())
+
+  find_paths(map, queue, scores, dict.new(), end, #(
+    set.new(),
+    1_000_000_000_000,
+  ))
   |> pair.first
-  |> panic
-  |> dict.get(end)
-  |> utils.unwrap
+  |> pair.second
 }
 
-fn find_paths(map, queue, scores: Dict(#(Position, Direction), Int), prev) {
+fn find_paths(
+  map,
+  queue,
+  scores: Dict(#(Position, Direction), Int),
+  prev: Dict(#(Position, Direction), Set(#(Position, Direction))),
+  target,
+  end: #(Set(#(Position, Direction)), Int),
+) {
   case queue.pop(queue) {
-    Error(_) -> #(scores, prev)
-    Ok(#(#(position, direction, score), queue)) -> {
-      let Surroundings(left:, right:, forward:) =
-        surroundings(map, position, direction)
-
-      let #(queue, scores, prev) = case left {
-        None -> #(queue, scores, prev)
-        Some(direction) -> {
-          let new_position = move(position, direction)
-          let score = score + 1001
-          let old_score =
-            result.unwrap(
-              dict.get(scores, #(new_position, direction)),
-              1_000_000_000_000,
-            )
-          case score < old_score, score == old_score {
-            False, False -> #(queue, scores, prev)
-            False, True -> #(
-              queue,
-              scores,
-              dict.upsert(prev, new_position, fn(prev) {
-                case prev {
-                  Some(prev) -> set.insert(prev, position)
-                  None -> set.from_list([position])
-                }
-              }),
-            )
-            True, _ -> #(
-              queue.push(queue, #(new_position, direction, score)),
-              dict.insert(scores, #(new_position, direction), score),
-              dict.insert(prev, new_position, set.from_list([position])),
-            )
-          }
-        }
-      }
-
-      let #(queue, scores, prev) = case right {
-        None -> #(queue, scores, prev)
-        Some(direction) -> {
-          let new_position = move(position, direction)
-          let score = score + 1001
-          let old_score =
-            result.unwrap(
-              dict.get(scores, #(new_position, direction)),
-              1_000_000_000_000,
-            )
-          case score < old_score, score == old_score {
-            False, False -> #(queue, scores, prev)
-            False, True -> #(
-              queue,
-              scores,
-              dict.upsert(prev, new_position, fn(prev) {
-                case prev {
-                  Some(prev) -> set.insert(prev, position)
-                  None -> set.from_list([position])
-                }
-              }),
-            )
-            True, _ -> #(
-              queue.push(queue, #(new_position, direction, score)),
-              dict.insert(scores, #(new_position, direction), score),
-              dict.insert(prev, new_position, set.from_list([position])),
-            )
-          }
-        }
-      }
-
-      let #(queue, scores, prev) = case forward {
-        False -> #(queue, scores, prev)
+    Error(_) -> #(end, prev)
+    Ok(#(#(position, direction, score), queue)) ->
+      case position == target {
         True -> {
-          let new_position = move(position, direction)
-          let score = score + 1
-          let old_score =
-            result.unwrap(
-              dict.get(scores, #(new_position, direction)),
-              1_000_000_000_000,
-            )
-            io.debug(#(old_score, score, position, new_position))
-          case score < old_score, score == old_score {
-            False, False -> #(queue, scores, prev)
-            False, True -> #(
-              queue,
-              scores,
-              dict.upsert(prev, new_position, fn(prev) {
-                case prev {
-                  Some(prev) -> set.insert(prev, position)
-                  None -> set.from_list([position])
-                }
-              }),
-            )
-            True, _ -> #(
-              queue.push(queue, #(new_position, direction, score)),
-              dict.insert(scores, #(new_position, direction), score),
-              dict.insert(prev, new_position, set.from_list([position])),
-            )
+          let old_score = end.1
+          let previous_positions =
+            utils.unwrap(dict.get(prev, #(position, direction)))
+          case score < old_score {
+            False -> find_paths(map, queue, scores, prev, target, end)
+            True ->
+              find_paths(map, queue, scores, prev, target, #(
+                set.union(previous_positions, end.0),
+                score,
+              ))
           }
         }
-      }
+        False -> {
+          let Surroundings(left:, right:, forward:) =
+            surroundings(map, position, direction)
 
-      find_paths(map, queue, scores, prev)
-    }
+          let #(queue, scores, prev) = case left {
+            None -> #(queue, scores, prev)
+            Some(new_direction) -> {
+              let score = score + 1000
+              let old_score =
+                result.unwrap(
+                  dict.get(scores, #(position, new_direction)),
+                  1_000_000_000_000,
+                )
+              case score < old_score, score == old_score {
+                False, False -> #(queue, scores, prev)
+                False, True -> #(
+                  queue,
+                  scores,
+                  dict.upsert(prev, #(position, new_direction), fn(prev) {
+                    case prev {
+                      Some(prev) -> set.insert(prev, #(position, direction))
+                      None -> set.from_list([#(position, direction)])
+                    }
+                  }),
+                )
+                True, _ -> #(
+                  queue.push(queue, #(position, new_direction, score)),
+                  dict.insert(scores, #(position, new_direction), score),
+                  dict.insert(
+                    prev,
+                    #(position, new_direction),
+                    set.from_list([#(position, direction)]),
+                  ),
+                )
+              }
+            }
+          }
+
+          let #(queue, scores, prev) = case right {
+            None -> #(queue, scores, prev)
+            Some(new_direction) -> {
+              let score = score + 1000
+              let old_score =
+                result.unwrap(
+                  dict.get(scores, #(position, new_direction)),
+                  1_000_000_000_000,
+                )
+              case score < old_score, score == old_score {
+                False, False -> #(queue, scores, prev)
+                False, True -> #(
+                  queue,
+                  scores,
+                  dict.upsert(prev, #(position, new_direction), fn(prev) {
+                    case prev {
+                      Some(prev) -> set.insert(prev, #(position, direction))
+                      None -> set.from_list([#(position, direction)])
+                    }
+                  }),
+                )
+                True, _ -> #(
+                  queue.push(queue, #(position, new_direction, score)),
+                  dict.insert(scores, #(position, new_direction), score),
+                  dict.insert(
+                    prev,
+                    #(position, new_direction),
+                    set.from_list([#(position, direction)]),
+                  ),
+                )
+              }
+            }
+          }
+
+          let #(queue, scores, prev) = case forward {
+            False -> #(queue, scores, prev)
+            True -> {
+              let new_position = move(position, direction)
+              let score = score + 1
+              let old_score =
+                result.unwrap(
+                  dict.get(scores, #(new_position, direction)),
+                  1_000_000_000_000,
+                )
+              case score < old_score, score == old_score {
+                False, False -> #(queue, scores, prev)
+                False, True -> #(
+                  queue,
+                  scores,
+                  dict.upsert(prev, #(new_position, direction), fn(prev) {
+                    case prev {
+                      Some(prev) -> set.insert(prev, #(position, direction))
+                      None -> set.from_list([#(position, direction)])
+                    }
+                  }),
+                )
+                True, _ -> #(
+                  queue.push(queue, #(new_position, direction, score)),
+                  dict.insert(scores, #(new_position, direction), score),
+                  dict.insert(
+                    prev,
+                    #(new_position, direction),
+                    set.from_list([#(position, direction)]),
+                  ),
+                )
+              }
+            }
+          }
+
+          find_paths(map, queue, scores, prev, target, end)
+        }
+      }
   }
 }
 
@@ -189,24 +222,25 @@ pub fn pt_2(input: String) {
   let queue =
     queue.new(fn(a: #(Position, Direction, Int), b) { int.compare(a.2, b.2) })
     |> queue.push(#(start, East, 0))
-  find_paths(map, queue, scores, dict.new())
-  |> pair.second
-  |> traverse(end, set.new()) |> io.debug
+  let #(#(back, _), prev) =
+    find_paths(map, queue, scores, dict.new(), end, #(
+      set.new(),
+      1_000_000_000_000,
+    ))
+  back
+  |> set.to_list
+  |> list.fold(set.from_list([end]), fn(v, p) { traverse(prev, p, v) })
   |> set.size
 }
 
-fn traverse(prev, at, visited) {
+fn traverse(prev, at: #(Position, Direction), visited) {
   case dict.get(prev, at) {
     Error(_) -> visited
-    Ok(previous) ->
-      case set.contains(visited, at) {
-        True -> visited
-        False -> {
-          visited
-          |> set.insert(at)
-          |> list.fold(set.to_list(previous), _, fn(v, p) { traverse(prev, p, v) })
-        }
-      }
+    Ok(previous) -> {
+      visited
+      |> set.insert(at.0)
+      |> list.fold(set.to_list(previous), _, fn(v, p) { traverse(prev, p, v) })
+    }
   }
 }
 
