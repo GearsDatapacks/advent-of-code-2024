@@ -25,7 +25,7 @@ fn find_visited_positions(state: State(Position)) -> Set(Position) {
   }
 }
 
-pub fn rotate(direction: Direction) -> Direction {
+fn rotate(direction: Direction) -> Direction {
   case direction {
     Up -> Right
     Right -> Down
@@ -34,7 +34,7 @@ pub fn rotate(direction: Direction) -> Direction {
   }
 }
 
-pub fn move(position: Position, direction: Direction) -> Position {
+fn move(position: Position, direction: Direction) -> Position {
   case direction {
     Up -> Position(x: position.x, y: position.y - 1)
     Left -> Position(x: position.x - 1, y: position.y)
@@ -59,9 +59,7 @@ fn detect_loops(
   case dict.get(state.map, new_position) {
     Error(_) -> count
     Ok(Empty) -> {
-      let count = case
-        set.contains(state.visited, new_position)
-      {
+      let count = case set.contains(state.visited, new_position) {
         True -> count
         False -> {
           let new_state =
@@ -144,23 +142,23 @@ fn parse(input: String) -> State(Position) {
   }
 }
 
-pub type Place {
+type Place {
   Empty
   Obstructed
 }
 
-pub type Position {
+type Position {
   Position(x: Int, y: Int)
 }
 
-pub type Direction {
+type Direction {
   Up
   Down
   Left
   Right
 }
 
-pub type State(visited) {
+type State(visited) {
   State(
     map: Dict(Position, Place),
     guard: Position,
