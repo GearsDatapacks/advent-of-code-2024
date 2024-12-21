@@ -1,32 +1,35 @@
-import rememo/memo
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/list
-import gleam/order
 import gleam/string
+import rememo/memo
 
-pub fn pt_1(input: String) {
+pub fn pt_1(input: String) -> Int {
   let codes = parse(input)
-  let controllers = controllers()
+  let controllers = controllers(2)
   use cache <- memo.create
   codes
-  |> list.map(fn(code) { code.number * presses(code.buttons, controllers, cache).0 })
+  |> list.map(fn(code) {
+    code.number * presses(code.buttons, controllers, cache).0
+  })
   |> int.sum
 }
 
-fn presses(code, controllers, cache) {
+fn presses(
+  code: List(String),
+  controllers: List(Controller),
+  cache,
+) -> #(Int, List(Controller)) {
   use <- memo.memoize(cache, #(code, controllers))
   use #(count, controllers), button <- list.fold(code, #(0, controllers))
   case controllers {
     [Human] -> #(count + 1, controllers)
     [Robot(keypad:, position:), ..controllers] -> {
       let assert Ok(new_position) = dict.get(keypad, button)
-      let moves = moves(position, new_position, keypad)
+      let assert Ok(blank) = dict.get(keypad, "BLANK")
+      let moves = moves(position, new_position, blank)
 
-      let #(new_count, controllers) =
-        moves
-        |> map(presses(_, controllers, cache))
-        |> min(fn(a: #(Int, List(Controller)), b) { int.compare(a.0, b.0) })
+      let #(new_count, controllers) = solve_solution(moves, controllers, cache)
       #(count + new_count, [
         Robot(keypad:, position: new_position),
         ..controllers
@@ -36,18 +39,7 @@ fn presses(code, controllers, cache) {
   }
 }
 
-type Order {
-  Xy
-  Yx
-  Any
-}
-
-fn moves(
-  from: Position,
-  to: Position,
-  keypad: Dict(String, Position),
-) -> OneOrTwo(List(String)) {
-  let assert Ok(blank) = dict.get(keypad, "BLANK")
+fn moves(from: Position, to: Position, blank: Position) -> Solution {
   let dx = to.0 - from.0
   let x_moves = case dx < 0 {
     True -> list.repeat("<", -dx)
@@ -60,50 +52,44 @@ fn moves(
     False -> list.repeat("v", dy)
   }
 
-  let order = case #(from.0 + dx, from.1) == blank || dx == 0 {
-    True -> Yx
+  case #(from.0 + dx, from.1) == blank || dx == 0 {
+    True -> Single(list.flatten([y_moves, x_moves, ["A"]]))
     False ->
       case #(from.0, from.1 + dy) == blank || dy == 0 {
-        True -> Xy
-        False -> Any
+        True -> Single(list.flatten([x_moves, y_moves, ["A"]]))
+        False ->
+          Either(
+            list.flatten([x_moves, y_moves, ["A"]]),
+            list.flatten([y_moves, x_moves, ["A"]]),
+          )
       }
   }
+}
 
-  let moves = case order {
-    Xy -> One(list.append(x_moves, y_moves))
-    Yx -> One(list.append(y_moves, x_moves))
-    Any -> {
-      Two(list.append(x_moves, y_moves), list.append(y_moves, x_moves))
+type Solution {
+  Single(List(String))
+  Either(List(String), List(String))
+}
+
+fn solve_solution(
+  solution: Solution,
+  controllers: List(Controller),
+  cache,
+) -> #(Int, List(Controller)) {
+  case solution {
+    Single(solution) -> presses(solution, controllers, cache)
+    Either(a, b) -> {
+      let #(score_a, controllers_a) = presses(a, controllers, cache)
+      let #(score_b, controllers_b) = presses(b, controllers, cache)
+      case score_a < score_b {
+        True -> #(score_a, controllers_a)
+        False -> #(score_b, controllers_b)
+      }
     }
   }
-
-  map(moves, list.append(_, ["A"]))
 }
 
-type OneOrTwo(a) {
-  One(a)
-  Two(a, a)
-}
-
-fn map(oot, f) {
-  case oot {
-    One(value) -> One(f(value))
-    Two(a, b) -> Two(f(a), f(b))
-  }
-}
-
-fn min(oot, f) {
-  case oot {
-    One(value) -> value
-    Two(a, b) ->
-      case f(a, b) {
-        order.Lt -> a
-        _ -> b
-      }
-  }
-}
-
-fn directional_keypad() {
+fn directional_keypad() -> Dict(String, Position) {
   dict.from_list([
     #("BLANK", #(0, 0)),
     #("^", #(1, 0)),
@@ -114,7 +100,7 @@ fn directional_keypad() {
   ])
 }
 
-fn number_keypad() {
+fn number_keypad() -> Dict(String, Position) {
   dict.from_list([
     #("7", #(0, 0)),
     #("8", #(1, 0)),
@@ -131,38 +117,31 @@ fn number_keypad() {
   ])
 }
 
-fn robot(keypad) {
+fn robot(keypad: Dict(String, Position)) -> Controller {
   let assert Ok(position) = dict.get(keypad, "A")
   Robot(keypad:, position:)
 }
 
-fn controllers() {
-  [
-    robot(number_keypad()),
-    robot(directional_keypad()),
-    robot(directional_keypad()),
-    Human,
-  ]
-}
-
-fn controllers2() {
+fn controllers(directional_robots: Int) -> List(Controller) {
   list.flatten([
     [robot(number_keypad())],
-    list.repeat(robot(directional_keypad()), 25),
+    list.repeat(robot(directional_keypad()), directional_robots),
     [Human],
   ])
 }
 
-pub fn pt_2(input: String) {
+pub fn pt_2(input: String) -> Int {
   let codes = parse(input)
-  let controllers = controllers2()
+  let controllers = controllers(25)
   use cache <- memo.create
   codes
-  |> list.map(fn(code) { code.number * presses(code.buttons, controllers, cache).0 })
+  |> list.map(fn(code) {
+    code.number * presses(code.buttons, controllers, cache).0
+  })
   |> int.sum
 }
 
-fn parse(input) {
+fn parse(input: String) -> List(Code) {
   input
   |> string.split("\n")
   |> list.map(fn(line) {
